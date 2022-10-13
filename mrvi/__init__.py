@@ -6,6 +6,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from ._model import MrVI, MrVAE
+from ._jaxmodel import JaxMrVI, JaxMrVAE
 
 # https://github.com/python-poetry/poetry/pull/2366#issuecomment-652418094
 # https://github.com/python-poetry/poetry/issues/144#issuecomment-623927302
