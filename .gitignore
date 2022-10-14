@@ -134,6 +134,7 @@ dmypy.json
 
 # vscode
 .vscode/settings.json
+.vscode/launch.json
 
 # snakemake
 workflow/.snakemake/
