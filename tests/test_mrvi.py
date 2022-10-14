@@ -31,7 +31,11 @@ def test_mrvi():
         linear_decoder_uz=True,
         linear_decoder_uz_scaler=True,
     )
-    model.train(1, check_val_every_n_epoch=1, train_size=0.5)
+    import time
+    start = time.time()
+    model.train(500, check_val_every_n_epoch=1, train_size=0.9)
+    print(time.time() - start)
+    # model.train(1, check_val_every_n_epoch=1, train_size=0.5)
     model.get_latent_representation()
     assert model.get_local_sample_representation().shape == (adata.shape[0], 15, 10)
     assert model.get_local_sample_representation(return_distances=True).shape == (
@@ -67,17 +71,21 @@ def test_mrvi_jax():
         linear_decoder_uz=True,
         linear_decoder_uz_scaler=False#True,
     )
-    model.train(10, check_val_every_n_epoch=1, train_size=0.5)
+    import time
+    start = time.time()
+    model.train(500, check_val_every_n_epoch=1, train_size=0.9)
+    print(time.time() - start)
+    # model.train(1, check_val_every_n_epoch=1, train_size=0.5)
     print(model.is_trained_)
     plt.plot(model.history['elbo_train_epoch'])
     plt.plot(model.history['elbo_validation'])
     plt.savefig('test.png')
-    model.get_latent_representation()
-    # assert model.get_local_sample_representation().shape == (adata.shape[0], 15, 10)
-    # assert model.get_local_sample_representation(return_distances=True).shape == (
-    #     adata.shape[0],
-    #     15,
-    #     15,
-    # )
+    model.get_latent_representation(mc_samples=10)
+    assert model.get_local_sample_representation().shape == (adata.shape[0], 15, 10)
+    assert model.get_local_sample_representation(return_distances=True).shape == (
+        adata.shape[0],
+        15,
+        15,
+    )
     # tests __repr__
     print(model)

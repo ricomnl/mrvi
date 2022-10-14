@@ -573,7 +573,7 @@ class JaxMrVAE(JaxBaseModuleClass):
             u = qu.mean
         else:
             u_rng = self.make_rng("u")
-            u = qu.rsample(u_rng, sample_shape=sample_shape)
+            u = qu.rsample(u_rng)#, sample_shape=sample_shape)
         
         # if jnp.isinf(u).any():
         #     pdb.set_trace()
@@ -588,7 +588,7 @@ class JaxMrVAE(JaxBaseModuleClass):
         else:
             ql = self.ql(x_)
             l_rng = self.make_rng("l")
-            library = ql.rsample(l_rng, sample_shape=sample_shape)
+            library = ql.rsample(l_rng)#, sample_shape=sample_shape)
 
         return dict(
             qu=qu,

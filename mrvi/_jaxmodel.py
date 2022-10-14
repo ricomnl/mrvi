@@ -7,6 +7,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from anndata import AnnData
+from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances
 from tqdm import tqdm
 
@@ -293,10 +294,10 @@ class JaxMrVI(JaxTrainingMixin, BaseModelClass):
         z = []
         for array_dict in tqdm(scdl):
             outputs = run_inference(array_dict)
-            u.append(outputs["u"].mean)
-            z.append(outputs["z"].mean)
+            u.append(outputs["u"].mean(0))
+            z.append(outputs["z"].mean(0))
         u = np.array(jax.device_get(jnp.concatenate(u, axis=0)))
-        z = np.array(jax.device_get(jnp.concatenate(z, axis=0)))        
+        z = np.array(jax.device_get(jnp.concatenate(z, axis=0)))       
         return z if give_z else u
 
 
@@ -344,8 +345,67 @@ class JaxMrVI(JaxTrainingMixin, BaseModelClass):
         eps=1e-6,
         return_distances=False,
     ):
-        # TODO: write
-        pass
+        """Computes the local sample representation of the cells in the adata object.
+        For each cell, it returns a matrix of size (n_donors, n_features)
+
+        If ``return_distances`` is ``True``, returns a distance matrix of
+        size (n_donors, n_donors) for each cell.
+        """
+        adata = self.adata if adata is None else adata
+        self._check_if_trained(warn=False)
+        adata = self._validate_anndata(adata)
+        scdl = self._make_data_loader(
+            adata=adata, indices=None, batch_size=batch_size, iter_ndarray=True
+        )
+
+        if x_space & (x_dim is not None):
+            hs = self.get_normalized_expression(
+                adata=adata, batch_size=batch_size, eps=eps, x_log=x_log
+            )
+            means = jnp.mean(hs, axis=0)
+            stds = jnp.std(hs, axis=0)
+            hs = (hs - means) / stds
+            pca = PCA(n_components=x_dim).fit(hs)
+            w = jnp.array(pca.components_).T
+            means = jnp.array(means)
+            stds = jnp.array(stds)
+
+        run_inference = self.module.get_inference_fn(mc_samples=mc_samples)
+
+        reps = []
+        for array_dict in tqdm(scdl):
+            xs = []
+            for batch in range(self.summary_stats.n_batch):
+                if x_space:
+                    pass
+                    # TODO: implement x_space
+                    # array_dict["categorical_nuisance_keys"] *= 0 # set to 0 all nuisance factors
+                    # array_dict["cf_batch"] = batch * jnp.ones_like(array_dict["batch"])
+                    # inference_outputs = run_inference(array_dict)
+                    # generative_inputs = self.module._get_generative_input(
+                    #     tensors=tensors, inference_outputs=inference_outputs
+                    # )
+                    # generative_outputs = self.module.generative(**generative_inputs)
+                    # new = generative_outputs["h"]
+                    # if x_log:
+                    #     new = jnp.log(eps + generative_outputs["h"])
+                    # if x_dim is not None:
+                    #     new = (new - means) / stds
+                    #     new = new @ w
+                else:
+                    array_dict["cf_batch"] = batch * jnp.ones_like(array_dict["batch"])
+                    inference_outputs = run_inference(array_dict)
+                    new = inference_outputs["z"]
+                xs.append(new[:, :, None])
+            xs = jnp.concatenate(xs, axis=2).mean(0)
+            reps.append(xs)
+        # n_cells, n_samples, n_latent
+        reps = jnp.concatenate(reps, axis=0)
+
+        if return_distances:
+            return self.compute_distance_matrix_from_representations(reps)
+        return reps
+
 
     def to_device(self, device):  # noqa: D102
         pass
